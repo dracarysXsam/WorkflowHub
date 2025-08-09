@@ -201,8 +201,8 @@ Have questions or want to connect?
 
 * **GitHub Issues:** [https://github.com/dracarysXsam/WorkflowHub/issues](https://github.com/dracarysXsam/WorkflowHub/issues)
 * **Project Link:** [https://github.com/dracarysXsam/WorkflowHub](https://github.com/dracarysXsam/WorkflowHub)
-* **Your Contact Email:** [your.email@example.com] <!-- ✨ IMPORTANT: Add your preferred contact email here! ✨ -->
-* **Your LinkedIn/Twitter:** [Link to your LinkedIn/Twitter profile] <!-- Optional -->
+* **Your Contact Email:** [shubhambhaskr123@gmail.com] <!-- ✨ IMPORTANT: Add your preferred contact email here! ✨ -->
+* **Your LinkedIn/Twitter:** (https://www.linkedin.com/in/shubham-bhasker-63846a203/) <!-- Optional -->
 
 ---
 
