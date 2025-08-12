@@ -1,8 +1,7 @@
 "use client"
 
 import type React from "react"
-
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card } from "@/components/ui/card"
@@ -23,63 +22,61 @@ import {
   DotIcon as DragHandleDots2Icon,
   Trash2,
   Edit,
+  type LucideIcon,
 } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 
+// Import API functions and types
+import {
+  getWorkflow,
+  updateWorkflowStep,
+  addWorkflowStep,
+  deleteWorkflowStep,
+  type Workflow,
+  type WorkflowStep,
+} from "@/lib/workflow-api"
+import { EditStepModal } from "@/components/workflow/edit-step-modal"
+
+// Icon mapping from string to component
+const iconMap: { [key: string]: LucideIcon } = {
+  MessageSquare,
+  Upload,
+  FileText,
+  Calendar,
+  CheckCircle,
+  Settings,
+  Users,
+  Star,
+  Zap,
+}
+
 export default function WorkflowBuilderPage() {
   const router = useRouter()
+  const [workflow, setWorkflow] = useState<Workflow | null>(null)
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null)
   const [workflowName, setWorkflowName] = useState("")
   const [isCustom, setIsCustom] = useState(false)
   const [draggedStep, setDraggedStep] = useState<number | null>(null)
-  const [workflowSteps, setWorkflowSteps] = useState([
-    {
-      id: 1,
-      title: "Initial Consultation",
-      icon: MessageSquare,
-      description: "30-min discovery call",
-      color: "bg-violet-500",
-      duration: "30 minutes",
-      automated: false,
-    },
-    {
-      id: 2,
-      title: "Document Collection",
-      icon: Upload,
-      description: "Secure document upload",
-      color: "bg-emerald-500",
-      duration: "2-3 days",
-      automated: true,
-    },
-    {
-      id: 3,
-      title: "Application Review",
-      icon: FileText,
-      description: "Expert application review",
-      color: "bg-navy-500",
-      duration: "1-2 days",
-      automated: false,
-    },
-    {
-      id: 4,
-      title: "Interview Preparation",
-      icon: Calendar,
-      description: "Mock interview session",
-      color: "bg-violet-600",
-      duration: "1 hour",
-      automated: false,
-    },
-    {
-      id: 5,
-      title: "Final Submission",
-      icon: CheckCircle,
-      description: "Application submission",
-      color: "bg-emerald-600",
-      duration: "1 day",
-      automated: true,
-    },
-  ])
+
+  // State for the edit modal
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [editingStep, setEditingStep] = useState<WorkflowStep | null>(null)
+
+  // Fetch initial workflow data
+  useEffect(() => {
+    // In a real app, you might get the workflow ID from the URL
+    const fetchWorkflow = async () => {
+      const wf = await getWorkflow("wf_1")
+      if (wf) {
+        setWorkflow(wf)
+        setWorkflowName(wf.name) // Initialize with fetched name
+      }
+    }
+    fetchWorkflow()
+  }, [])
+
+  const workflowSteps = workflow?.steps ?? []
 
   const templates = [
     {
@@ -122,8 +119,7 @@ export default function WorkflowBuilderPage() {
 
   const handleCreateWorkflow = async () => {
     if (!workflowName.trim()) return
-
-    // Simulate API call
+    // In a real app, this would call a createWorkflow API function
     await new Promise((resolve) => setTimeout(resolve, 1000))
     router.push("/dashboard")
   }
@@ -138,36 +134,102 @@ export default function WorkflowBuilderPage() {
 
   const handleDrop = (e: React.DragEvent, targetId: number) => {
     e.preventDefault()
-    if (draggedStep === null) return
+    if (draggedStep === null || !workflow) return
 
-    const draggedIndex = workflowSteps.findIndex((step) => step.id === draggedStep)
-    const targetIndex = workflowSteps.findIndex((step) => step.id === targetId)
+    const draggedIndex = workflow.steps.findIndex((step) => step.id === draggedStep)
+    const targetIndex = workflow.steps.findIndex((step) => step.id === targetId)
 
     if (draggedIndex === -1 || targetIndex === -1) return
 
-    const newSteps = [...workflowSteps]
+    const newSteps = [...workflow.steps]
     const [draggedItem] = newSteps.splice(draggedIndex, 1)
     newSteps.splice(targetIndex, 0, draggedItem)
 
-    setWorkflowSteps(newSteps)
+    setWorkflow({ ...workflow, steps: newSteps })
     setDraggedStep(null)
+    // Here you would also call an API to save the new order
+    // reorderWorkflowSteps(workflow.id, newSteps.map(s => s.id));
   }
 
-  const addNewStep = () => {
-    const newStep = {
-      id: Math.max(...workflowSteps.map((s) => s.id)) + 1,
+  const addNewStep = async () => {
+    if (!workflow) return
+    const newStepData = {
       title: "New Step",
-      icon: Settings,
+      icon: "Settings",
       description: "Add description",
       color: "bg-navy-400",
       duration: "TBD",
       automated: false,
     }
-    setWorkflowSteps([...workflowSteps, newStep])
+    try {
+      const addedStep = await addWorkflowStep(workflow.id, newStepData)
+      setWorkflow((prevWorkflow) => {
+        if (!prevWorkflow) return null
+        return {
+          ...prevWorkflow,
+          steps: [...prevWorkflow.steps, addedStep],
+        }
+      })
+    } catch (error) {
+      console.error("Failed to add step:", error)
+      // Here you could show an error toast to the user
+    }
   }
 
-  const removeStep = (stepId: number) => {
-    setWorkflowSteps(workflowSteps.filter((step) => step.id !== stepId))
+  const removeStep = async (stepId: number) => {
+    if (!workflow) return
+    try {
+      await deleteWorkflowStep(workflow.id, stepId)
+      setWorkflow((prevWorkflow) => {
+        if (!prevWorkflow) return null
+        return {
+          ...prevWorkflow,
+          steps: prevWorkflow.steps.filter((step) => step.id !== stepId),
+        }
+      })
+    } catch (error) {
+      console.error("Failed to delete step:", error)
+      // Here you could show an error toast to the user
+    }
+  }
+
+  // Handlers for the edit modal
+  const handleOpenEditModal = (step: WorkflowStep) => {
+    setEditingStep(step)
+    setIsEditModalOpen(true)
+  }
+
+  const handleCloseEditModal = () => {
+    setIsEditModalOpen(false)
+    setEditingStep(null)
+  }
+
+  const handleSaveStep = async (updatedStep: WorkflowStep) => {
+    if (!workflow) return
+
+    try {
+      const savedStep = await updateWorkflowStep(workflow.id, updatedStep)
+      setWorkflow((prevWorkflow) => {
+        if (!prevWorkflow) return null
+        return {
+          ...prevWorkflow,
+          steps: prevWorkflow.steps.map((step) => (step.id === savedStep.id ? savedStep : step)),
+        }
+      })
+    } catch (error) {
+      console.error("Failed to update step:", error)
+      // Here you could show an error toast to the user
+    }
+
+    handleCloseEditModal()
+  }
+
+  if (!workflow) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-navy-900 via-violet-900 to-navy-800 flex items-center justify-center">
+        <p className="text-white text-xl">Loading Workflow Builder...</p>
+      </div>
+    )
   }
 
   return (
@@ -290,51 +352,59 @@ export default function WorkflowBuilderPage() {
                   <h3 className="font-semibold text-white mb-4">Workflow Steps</h3>
 
                   <div className="space-y-3 mb-6">
-                    {workflowSteps.map((step, index) => (
-                      <div
-                        key={step.id}
-                        draggable
-                        onDragStart={() => handleDragStart(step.id)}
-                        onDragOver={handleDragOver}
-                        onDrop={(e) => handleDrop(e, step.id)}
-                        className="flex items-center space-x-4 p-4 bg-white/5 rounded-lg border border-white/10 hover:bg-white/10 transition-colors cursor-move group"
-                      >
-                        <DragHandleDots2Icon className="w-5 h-5 text-white/50 group-hover:text-white" />
-
+                    {workflowSteps.map((step, index) => {
+                      const IconComponent = iconMap[step.icon] || Settings
+                      return (
                         <div
-                          className={`w-10 h-10 ${step.color} rounded-lg flex items-center justify-center flex-shrink-0`}
+                          key={step.id}
+                          draggable
+                          onDragStart={() => handleDragStart(step.id)}
+                          onDragOver={handleDragOver}
+                          onDrop={(e) => handleDrop(e, step.id)}
+                          className="flex items-center space-x-4 p-4 bg-white/5 rounded-lg border border-white/10 hover:bg-white/10 transition-colors cursor-move group"
                         >
-                          <step.icon className="w-5 h-5 text-white" />
-                        </div>
+                          <DragHandleDots2Icon className="w-5 h-5 text-white/50 group-hover:text-white" />
 
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-2 mb-1">
-                            <h4 className="font-medium text-white">{step.title}</h4>
-                            {step.automated && <Badge className="bg-emerald-500 text-white text-xs">Auto</Badge>}
-                          </div>
-                          <p className="text-navy-300 text-sm">{step.description}</p>
-                          <p className="text-navy-400 text-xs mt-1">Duration: {step.duration}</p>
-                        </div>
-
-                        <div className="flex items-center space-x-2">
-                          <Button variant="ghost" size="sm" className="text-white/70 hover:text-white">
-                            <Edit className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => removeStep(step.id)}
-                            className="text-red-400 hover:text-red-300"
+                          <div
+                            className={`w-10 h-10 ${step.color} rounded-lg flex items-center justify-center flex-shrink-0`}
                           >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
+                            <IconComponent className="w-5 h-5 text-white" />
+                          </div>
 
-                        {index < workflowSteps.length - 1 && (
-                          <div className="absolute left-9 top-16 w-0.5 h-4 bg-gradient-to-b from-white/20 to-violet-400/50" />
-                        )}
-                      </div>
-                    ))}
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-2 mb-1">
+                              <h4 className="font-medium text-white">{step.title}</h4>
+                              {step.automated && <Badge className="bg-emerald-500 text-white text-xs">Auto</Badge>}
+                            </div>
+                            <p className="text-navy-300 text-sm">{step.description}</p>
+                            <p className="text-navy-400 text-xs mt-1">Duration: {step.duration}</p>
+                          </div>
+
+                          <div className="flex items-center space-x-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-white/70 hover:text-white"
+                              onClick={() => handleOpenEditModal(step)}
+                            >
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeStep(step.id)}
+                              className="text-red-400 hover:text-red-300"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+
+                          {index < workflowSteps.length - 1 && (
+                            <div className="absolute left-9 top-16 w-0.5 h-4 bg-gradient-to-b from-white/20 to-violet-400/50" />
+                          )}
+                        </div>
+                      )
+                    })}
                   </div>
 
                   <Button
@@ -399,23 +469,26 @@ export default function WorkflowBuilderPage() {
                   </div>
 
                   <div className="space-y-3">
-                    {workflowSteps.map((step, index) => (
-                      <div key={step.id} className="relative">
-                        <div className="flex items-center space-x-3 p-3 bg-navy-800/50 rounded-lg">
-                          <div className={`w-8 h-8 ${step.color} rounded-lg flex items-center justify-center`}>
-                            <step.icon className="w-4 h-4 text-white" />
+                    {workflowSteps.map((step, index) => {
+                      const IconComponent = iconMap[step.icon] || Settings
+                      return (
+                        <div key={step.id} className="relative">
+                          <div className="flex items-center space-x-3 p-3 bg-navy-800/50 rounded-lg">
+                            <div className={`w-8 h-8 ${step.color} rounded-lg flex items-center justify-center`}>
+                              <IconComponent className="w-4 h-4 text-white" />
+                            </div>
+                            <div className="flex-1">
+                              <div className="font-medium text-white text-sm">{step.title}</div>
+                              <div className="text-navy-300 text-xs">{step.description}</div>
+                            </div>
                           </div>
-                          <div className="flex-1">
-                            <div className="font-medium text-white text-sm">{step.title}</div>
-                            <div className="text-navy-300 text-xs">{step.description}</div>
-                          </div>
-                        </div>
 
-                        {index < workflowSteps.length - 1 && (
-                          <div className="absolute left-7 top-12 w-0.5 h-3 bg-gradient-to-b from-navy-400 to-violet-400" />
-                        )}
-                      </div>
-                    ))}
+                          {index < workflowSteps.length - 1 && (
+                            <div className="absolute left-7 top-12 w-0.5 h-3 bg-gradient-to-b from-navy-400 to-violet-400" />
+                          )}
+                        </div>
+                      )
+                    })}
                   </div>
 
                   <div className="pt-4 border-t border-white/10">
@@ -453,6 +526,12 @@ export default function WorkflowBuilderPage() {
           </div>
         </div>
       </div>
+      <EditStepModal
+        isOpen={isEditModalOpen}
+        onClose={handleCloseEditModal}
+        onSave={handleSaveStep}
+        step={editingStep}
+      />
     </div>
   )
 }
