@@ -1,14 +1,24 @@
-import { createClient } from "@supabase/supabase-js"
+import { createClient, type SupabaseClient } from "@supabase/supabase-js"
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+// Use a singleton pattern to ensure we only create one client instance.
+let supabase: SupabaseClient | undefined
 
-if (!supabaseUrl) {
-  throw new Error("Missing environment variable: NEXT_PUBLIC_SUPABASE_URL")
+export function getSupabaseClient() {
+  if (supabase) {
+    return supabase
+  }
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+  if (!supabaseUrl) {
+    throw new Error("Missing environment variable: NEXT_PUBLIC_SUPABASE_URL")
+  }
+
+  if (!supabaseAnonKey) {
+    throw new Error("Missing environment variable: NEXT_PUBLIC_SUPABASE_ANON_KEY")
+  }
+
+  supabase = createClient(supabaseUrl, supabaseAnonKey)
+  return supabase
 }
-
-if (!supabaseAnonKey) {
-  throw new Error("Missing environment variable: NEXT_PUBLIC_SUPABASE_ANON_KEY")
-}
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
