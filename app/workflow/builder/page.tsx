@@ -33,6 +33,7 @@ import {
   updateWorkflowStep,
   addWorkflowStep,
   deleteWorkflowStep,
+  reorderWorkflowSteps,
   type Workflow,
   type WorkflowStep,
 } from "@/lib/workflow-api"
@@ -132,7 +133,7 @@ export default function WorkflowBuilderPage() {
     e.preventDefault()
   }
 
-  const handleDrop = (e: React.DragEvent, targetId: number) => {
+  const handleDrop = async (e: React.DragEvent, targetId: number) => {
     e.preventDefault()
     if (draggedStep === null || !workflow) return
 
@@ -146,9 +147,18 @@ export default function WorkflowBuilderPage() {
     newSteps.splice(targetIndex, 0, draggedItem)
 
     setWorkflow({ ...workflow, steps: newSteps })
-    setDraggedStep(null)
-    // Here you would also call an API to save the new order
-    // reorderWorkflowSteps(workflow.id, newSteps.map(s => s.id));
+
+    try {
+      await reorderWorkflowSteps(
+        workflow.id,
+        newSteps.map((s) => s.id),
+      )
+    } catch (error) {
+      console.error("Failed to reorder steps:", error)
+      // Optional: Revert UI state on API failure
+    } finally {
+      setDraggedStep(null)
+    }
   }
 
   const addNewStep = async () => {

@@ -1,8 +1,13 @@
+"use client"
+
 import { Button } from "@/components/ui/button"
 import { Workflow } from "lucide-react"
 import Link from "next/link"
+import { useSession, signIn, signOut } from "next-auth/react"
 
 export function Navigation() {
+  const { data: session } = useSession()
+
   return (
     <nav className="fixed top-0 w-full bg-white/90 backdrop-blur-md border-b border-navy-100/50 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -29,16 +34,18 @@ export function Navigation() {
           </div>
 
           <div className="flex items-center space-x-4">
-            <Link href="/auth">
-              <Button variant="ghost" className="text-navy-600 hover:text-violet-600 font-medium">
-                Sign In
+            {session ? (
+              <>
+                <span className="text-navy-600 font-medium">{session.user?.email}</span>
+                <Button onClick={() => signOut()} variant="ghost" className="text-navy-600 hover:text-violet-600 font-medium">
+                  Sign Out
+                </Button>
+              </>
+            ) : (
+              <Button onClick={() => signIn("google")} className="bg-gradient-to-r from-violet-600 to-violet-700 hover:from-violet-700 hover:to-violet-800 text-white shadow-lg hover:shadow-xl transition-all duration-300">
+                Login with Google
               </Button>
-            </Link>
-            <Link href="/auth">
-              <Button className="bg-gradient-to-r from-violet-600 to-violet-700 hover:from-violet-700 hover:to-violet-800 text-white shadow-lg hover:shadow-xl transition-all duration-300">
-                Start Building
-              </Button>
-            </Link>
+            )}
           </div>
         </div>
       </div>
