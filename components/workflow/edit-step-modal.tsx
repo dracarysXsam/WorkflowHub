@@ -20,37 +20,43 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { type WorkflowStep, type SupabaseWorkflowStep } from "@/lib/workflow-api"
+import { type WorkflowStep, type StepData } from "@/lib/workflow-api"
 
 interface EditStepModalProps {
   isOpen: boolean
   onClose: () => void
-  onSave: (updates: Partial<Omit<SupabaseWorkflowStep, "id" | "workflow_id" | "created_at">>) => void
+  onSave: (updates: { step_name?: string; step_data?: StepData }) => void
   step: WorkflowStep | null
 }
 
 export function EditStepModal({ isOpen, onClose, onSave, step }: EditStepModalProps) {
-  const [title, setTitle] = useState("")
+  const [stepName, setStepName] = useState("")
   const [description, setDescription] = useState("")
-  const [type, setType] = useState<SupabaseWorkflowStep["type"]>("custom")
+  const [type, setType] = useState<StepData["type"]>("custom")
 
   useEffect(() => {
     if (step) {
-      setTitle(step.title)
-      setDescription(step.description || "")
-      setType(step.type)
+      setStepName(step.step_name)
+      setDescription(step.step_data?.description || "")
+      setType(step.step_data?.type || "custom")
     }
   }, [step])
 
   const handleSave = () => {
     if (!step) return
 
-    const updates: Partial<Omit<SupabaseWorkflowStep, "id" | "workflow_id" | "created_at">> = {
-      title,
-      description,
-      type,
+    // Reconstruct the step_data object, preserving any existing fields
+    // that aren't editable in this form.
+    const newStepData: StepData = {
+      ...(step.step_data || {}),
+      description: description,
+      type: type,
     }
-    onSave(updates)
+
+    onSave({
+      step_name: stepName,
+      step_data: newStepData,
+    })
     onClose()
   }
 
@@ -71,13 +77,13 @@ export function EditStepModal({ isOpen, onClose, onSave, step }: EditStepModalPr
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="title" className="text-right text-navy-300">
-              Title
+            <Label htmlFor="stepName" className="text-right text-navy-300">
+              Step Name
             </Label>
             <Input
-              id="title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              id="stepName"
+              value={stepName}
+              onChange={(e) => setStepName(e.target.value)}
               className="col-span-3 bg-navy-900 border-navy-600 placeholder:text-navy-400"
             />
           </div>
@@ -96,11 +102,11 @@ export function EditStepModal({ isOpen, onClose, onSave, step }: EditStepModalPr
             <Label htmlFor="type" className="text-right text-navy-300">
               Type
             </Label>
-            <Select value={type} onValueChange={(value) => setType(value as SupabaseWorkflowStep["type"])}>
+            <Select value={type} onValueChange={(value) => setType(value as StepData["type"])}>
               <SelectTrigger className="col-span-3 bg-navy-900 border-navy-600">
                 <SelectValue placeholder="Select a step type" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-navy-800 text-white border-navy-700">
                 <SelectItem value="meeting">Meeting</SelectItem>
                 <SelectItem value="form">Form</SelectItem>
                 <SelectItem value="payment">Payment</SelectItem>
